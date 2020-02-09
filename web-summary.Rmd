@@ -3,7 +3,7 @@ title: "A stochastic model for the transmission of 2019-nCov in Wuhan"
 output:
   html_document: default
   pdf_document: default
-date: "2/6/2020"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
 ---
 
 ```{r setup, include=FALSE}
@@ -143,4 +143,4 @@ We nonetheless consider our baseline scenario (Scenario 1) to most closely refle
 
 ## Details
 
-Additional model details are available online at...
+Additional details available online at https://github.com/CEIDatUGA/ncov-wuhan-stochastic-model.

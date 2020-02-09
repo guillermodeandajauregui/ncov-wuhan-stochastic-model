@@ -1,13 +1,13 @@
 ---
 title: "A stochastic model for the transmission of 2019-nCov in Wuhan"
 author: "John M. Drake & Pejman Rohani"
-date: "2/6/2020"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
 header-includes:
   - \usepackage{amsmath}
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
