@@ -5,9 +5,9 @@ date: "`r format(Sys.time(), '%B %d, %Y')`"
 header-includes:
   - \usepackage{amsmath}
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -614,7 +614,7 @@ NOTE: Parameters set to account for different intervention date.
 ```{r sim2}
 start <- as.Date('11/15/2019',format='%m/%d/%Y')
 set.seed(1292020)                #set seed
-out2 <- evaluate.model(params=list(beta0=0.657, sigma=1/6.4, z=56, b=0.143, a0=0.0446, w=56, dt=0.05),
+out2 <- evaluate.model(params=list(beta0=0.657, sigma=1/6.4, z=56, b=0.143, a0=0.0446, w=56, c=1, dt=0.05),
                        init = list(S=59002000,
                                  E1=0, E2=0, E3=0, E4=0, E5=0, E6=0,
                                  I1=1, I2=0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0, 
@@ -633,7 +633,7 @@ NOTE: Need to specify parameters here to adjust time of recovery rate increase s
 ```{r sim3}
 start <- as.Date('12/15/2019',format='%m/%d/%Y')
 set.seed(1252020)                #set seed
-out3 <- evaluate.model(params=list(beta0=0.657, sigma=1/6.4, z=30, b=0.143, a0=0.0446, w=26, dt=0.05),
+out3 <- evaluate.model(params=list(beta0=0.657, sigma=1/6.4, z=30, b=0.143, a0=0.0446, w=26, c=1, dt=0.05),
                        init = list(S=59002000,
                                  E1=5, E2=5, E3=5, E4=5, E5=5, E6=5,
                                  I1=1, I2=0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0, 
@@ -652,7 +652,7 @@ This suggests that existing case notification data may not be not sufficient to 
 ```{r sim4}
 start <- as.Date('12/01/2019',format='%m/%d/%Y')
 set.seed(1252020)                #set seed
-out4 <- evaluate.model(params=list(beta0=0.657, sigma=1/6.4, z=3000, b=0.143, a0=0.0446, w=40, dt=0.05),
+out4 <- evaluate.model(params=list(beta0=0.657, sigma=1/6.4, z=3000, b=0.143, a0=0.0446, w=40, c=1, dt=0.05),
                        init = list(S=59002000,
                                  E1=0, E2=0, E3=0, E4=0, E5=0, E6=0,
                                  I1=1, I2=0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0, 
