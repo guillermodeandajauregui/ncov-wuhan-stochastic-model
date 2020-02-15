@@ -5,9 +5,9 @@ date: "`r format(Sys.time(), '%B %d, %Y')`"
 header-includes:
   - \usepackage{amsmath}
 output:
+  pdf_document: default
   html_document:
     df_print: paged
-  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -40,11 +40,17 @@ For this project, we look at case notifications in the province of Hubei.
 today <- Sys.Date()
 start <- as.Date('12/01/2019',format='%m/%d/%Y')
 today.day <- today - start + 1
-data <- read.csv('china-province-data - cases.csv')
+#data <- read.csv('china-province-data - cases.csv')
+data <- read.csv('china-province-data - wikipedia-cases.csv')
+  data[,1] <- as.Date(as.character(data[,1]), format='%Y-%m-%d')
+  names(data)[1] <- 'date'
+
+
 data.province <- data #head(data,-3)
-data.province$date <- as.Date(data.province$Date, format='%m-%d-%Y')
+#data.province$date <- as.Date(data.province$Date, format='%m-%d-%Y')
 data.province[is.na(data.province)] <- 0
-data.province$total <- rowSums(data.province[,3:35])
+#data.province$total <- rowSums(data.province[,3:35])
+data.province$total <- rowSums(data.province[,c(2,4:33)])
 data.province$day <- data.province$date - start + 1  # Day 1 is given by "start"
 data.province$cum.cases <- cumsum(data.province$total)
 
@@ -106,7 +112,8 @@ onestep <- function (x, params) {  #function to calculate one step of stochastic
   Iu3 <- x[15]
   Iu4 <- x[16]
   
-  
+  I.detected <-I1+I2+I3+I4
+  I.undetected <- Iu1+Iu2+Iu3+Iu4
   I <- I1+I2+I3+I4+Iu1+Iu2+Iu3+Iu4     #total infections
   
   H <- x[17]                           #local variable for hospitalized
@@ -127,7 +134,7 @@ onestep <- function (x, params) {  #function to calculate one step of stochastic
          etat <- eta(t)
         # betat <- beta(beta0, t)
 
-         rates <- as.numeric(c(beta0*(I)/N,                           # movements out of S
+         rates <- as.numeric(c(beta0*I.detected/N+beta0*c*I.undetected/N,                           # movements out of S
                     sigmai, sigmai, sigmai, sigmai, sigmai, sigmai,   # movements out of E
                     gammai, gammai, gammai, gammai,                   # movements out of I (detected)
                     b, b, b, b,                                       # movements out of I (undetected)
@@ -199,7 +206,7 @@ model <- function (x, params, nstep) {  #function to simulate stochastic SIR
 The function `evaluate.model` simulates an arbitrary number of realizations and returns the result.
 
 ```{r evaluate}
-evaluate.model <- function(params=list(beta0=0.657, sigma=1/6.4, z=45, b=0.143, a0=0.0446, w=40, dt=0.05),
+evaluate.model <- function(params=list(beta0=0.657, sigma=1/6.4, z=45, b=0.143, a0=0.0446, w=40, c=1,  dt=0.05),
                                        init = list(S=59002000, E1=0, E2=0, E3=0, E4=0, E5=6, E6=0,
                                                    I1 = 1, I2= 0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0,
                                                    H=0, Ru=0, C=0),
