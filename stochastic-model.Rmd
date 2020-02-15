@@ -486,8 +486,6 @@ The epidemic is assumed to have originated on December 1, 2019 with one case.
 We have estimated $R_0$ and $R_{eff}$ to range from 1.4 to 4.6, depending on data and modeling assumptions (see: *Estimating $R_0$ and other parameters for the 2019-nCov epidemic*).
 For this study, we assume $R_0 \approx 4.6$, which is higher than most estimates by other groups, but not unreasonable.
 
-MAYBE UPDATE
-
 The rate of progression from symptomatic illness to hospitalization ($\gamma$) is assumed to be piecewide linear with an average infectious period of $\frac{1}{0.143}\approx 7$ days prior to an arbitrary intervention day $d$, followed by a linear increase in average recovery rate increasing in time at rate $a_0$. The default assumption is that $d=45$, which (assuming an epidemic start date of December 1) corresponds to a signficant change on January 15 as found by statistical analysis, and four days before testing was expanded in Wuhan.
 
 \begin{equation}
@@ -663,8 +661,142 @@ out4 <- evaluate.model(params=list(beta0=0.657, sigma=1/6.4, z=3000, b=0.143, a0
 plot.model2(out4)
 ```
 
-## To Do
+### Scenario 5: Reduced transmissibility in undetected (weakly symptomatic) cases
 
-* Add calculations about unobserved cases
+Shaman et al. (personal communication) have estimated that transmissibility in undetected cases is approximatey 52% of that in detected cases. Here we return to our baseline scenario, but reduce transmissibility of undetected cases asccording to a coefficient $c=0.52$.
+If the other features of this scenario (e.g. case isolation rate, etc.) are taken as given, such a reduction is inconsistent with the observed epidemic curve. 
+Presumably, our model could be made consistent with this estimate if a different time-varying function for case isolation was chosen. 
+
+```{r sim5}
+start <- as.Date('12/01/2019',format='%m/%d/%Y')
+set.seed(1292020)                #set seed
+out5 <- evaluate.model(params=list(beta0=0.657, sigma=1/6.4, z=45, b=0.143, a0=0.0446, w=40, c=0.52,  dt=0.05), init = list(S=59002000,
+                                 E1=0, E2=0, E3=0, E4=0, E5=0, E6=0,
+                                 I1=1, I2=0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0, 
+                                 R=0, Ru=0, Q=0),
+                     nsims=25, nstep=NULL, start=start)
+#plot.model(out5, log='y')
+plot.model2(out5, log='y')
+```
+
+### Scenario 6: Short serial interval
+
+Nishiura et al (https://www.medrxiv.org/content/10.1101/2020.02.03.20019497v1) have estimated the serial interval to be 2.6 days, suggesting that a considerable amount of secondary transmission may be due to presymptomatic cases.
+To approximate this scenario, this scenario allow the latent class to be infectious.
+This scenario is starkly inconsistent with the oberved case notification curve.
+
+```{r onestep2}
+#this version of the model allows latent infections to transmit
+onestep <- function (x, params) {  #function to calculate one step of stochastic SIR
+  
+  S <- x[2]                            #local variable for susceptibles
+  
+  E1 <- x[3]                           #exposed classes
+  E2 <- x[4]
+  E3 <- x[5]
+  E4 <- x[6]
+  E5 <- x[7]
+  E6 <- x[8]
+  
+  E <- E1+E2+E3+E4+E5+E6
+  
+  I1 <- x[9]                           #detected infectious classes
+  I2 <- x[10]
+  I3 <- x[11]
+  I4 <- x[12]
+  
+  Iu1 <- x[13]                           #undetected infectious classes
+  Iu2 <- x[14]
+  Iu3 <- x[15]
+  Iu4 <- x[16]
+  
+  I.detected <-I1+I2+I3+I4
+  I.undetected <- Iu1+Iu2+Iu3+Iu4
+  I <- I1+I2+I3+I4+Iu1+Iu2+Iu3+Iu4     #total infections
+  
+  H <- x[17]                           #local variable for hospitalized
+  Ru <- x[18]                          #local variable for undetected recovereds
+  
+  C <- x[19]    # local variable for notifications
+ 
+  N <- S+E1+E2+E3+E4+E5+E6+I1+I2+I3+I4+Iu1+Iu2+Iu3+Iu4+H+Ru          # total size of population
+  
+  t <- x[20]                          #get current time
+  
+  
+  with(                                #use with to simplify code
+       as.list(params), 
+       {
+         gammai <- 4*gamma(z=z, b=b, a0=a0, t=as.numeric(t))  # multiplier 4 for pseudo stages
+         sigmai <- 6*sigma  # multiplier 6 for pseudo stages
+         etat <- eta(t)
+        # betat <- beta(beta0, t)
+
+         rates <- as.numeric(c(beta0*I.detected/N+beta0*c*I.undetected/N+beta0*c*E/N,                           # movements out of S
+                    sigmai, sigmai, sigmai, sigmai, sigmai, sigmai,   # movements out of E
+                    gammai, gammai, gammai, gammai,                   # movements out of I (detected)
+                    b, b, b, b,                                       # movements out of I (undetected)
+                    etat))
+
+         states0 <- x[2:(length(x)-1)]
+         
+         # transition probabilities
+         
+         p <- matrix(0, nrow=length(rates),ncol=length(states0))                                     # matrix to hold transitions probs
+                
+         p[1,]  <- c(exp(-rates[1]*dt),1-exp(-rates[1]*dt), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)   # S-> E
+         
+         p[2,]  <- c(0, exp(-rates[2]*dt), 1-exp(-rates[2]*dt), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)    # Transitions out of E
+         p[3,]  <- c(0, 0, exp(-rates[3]*dt), 1-exp(-rates[3]*dt), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)    # Transitions out of E
+         p[4,]  <- c(0, 0, 0, exp(-rates[4]*dt), 1-exp(-rates[4]*dt), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)    # Transitions out of E
+         p[5,]  <- c(0, 0, 0, 0, exp(-rates[5]*dt), 1-exp(-rates[5]*dt), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)    # Transitions out of E
+         p[6,]  <- c(0, 0, 0, 0, 0, exp(-rates[6]*dt), 1-exp(-rates[6]*dt), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)    # Transitions out of E
+         p[7,]  <- c(0, 0, 0, 0, 0, 0, exp(-rates[7]*dt), (1-exp(-rates[7]*dt))*q(t,w), 0, 0, 0, (1-exp(-rates[7]*dt))*(1-q(t,w)), 0, 0, 0, 0, 0, 0)    # Transitions out of E
+         
+         p[8,]  <- c(0, 0, 0, 0, 0, 0, 0, exp(-rates[8]*dt), 1-exp(-rates[8]*dt), 0, 0, 0, 0, 0, 0, 0, 0, 0)    # Transitions out of I (detected)
+         p[9,]  <- c(0, 0, 0, 0, 0, 0, 0, 0, exp(-rates[9]*dt), 1-exp(-rates[9]*dt), 0, 0, 0, 0, 0, 0, 0, 0)    # Transitions out of I
+         p[10,] <- c(0, 0, 0, 0, 0, 0, 0, 0, 0, exp(-rates[10]*dt), 1-exp(-rates[10]*dt), 0, 0, 0, 0, 0, 0, 0)  # Transitions out of I
+         p[11,] <- c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, exp(-rates[11]*dt), 0, 0, 0, 0, 1-exp(-rates[11]*dt), 0, 0)  # Transitions out of I -> H
+         
+         p[12,]  <- c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  exp(-rates[12]*dt), 1-exp(-rates[12]*dt), 0, 0, 0, 0, 0)    # Transitions out of I (undetected)
+         p[13,]  <- c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  exp(-rates[13]*dt), 1-exp(-rates[13]*dt), 0, 0, 0, 0)    # Transitions out of I
+         p[14,] <- c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  exp(-rates[14]*dt), 1-exp(-rates[14]*dt), 0, 0, 0)  # Transitions out of I
+         p[15,] <- c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  exp(-rates[15]*dt), 0, 1-exp(-rates[15]*dt), 0)  # Transitions out of I -> R_u
+
+          
+         p[16,] <- c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, exp(-rates[16]*dt), 0, 1-exp(-rates[16]*dt))  # Transitions R_d -> to C (notification)
+
+         # update states
+         
+         states1 <- matrix(0, nrow=length(rates),ncol=length(states0))                                # matrix to hold future states
+
+         for(i in 1:length(rates)){
+           states1[i,] <- t(rmultinom(1, states0[i], p[i,])) 
+         }
+         
+         states1 <- colSums(states1)
+         states1[17] <- states1[17]+Ru  #add formerly Recovered undetected cases
+         states1[18] <- states1[18]+C  #add formerly notified cases
+         
+         return(x <- c(dt, states1, tail(x,1)+dt))
+       }
+       )
+}
+```
+
+```{r sim6}
+start <- as.Date('12/01/2019',format='%m/%d/%Y')
+set.seed(1292020)                #set seed
+out6 <- evaluate.model(init = list(S=59002000,
+                                 E1=0, E2=0, E3=0, E4=0, E5=0, E6=0,
+                                 I1=1, I2=0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0, 
+                                 R=0, Ru=0, Q=0),
+                     nsims=25, nstep=NULL, start=start)
+#plot.model(out5, log='y')
+plot.model2(out6, log='y')
+```
+
+### To Do
+
 * Add references
 * Update $R_0$ calculations
