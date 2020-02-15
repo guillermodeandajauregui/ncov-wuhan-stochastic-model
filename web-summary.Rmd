@@ -134,6 +134,21 @@ As for Scenario 1 and Scenario 3, the model-predicted expected case notification
 
 ![A model-based scenario for the early spread of 2019-nCov in Wuhan in the absence of effective interventions.](stochastic-model_files/figure-html/sim4-1.png)
 
+### Scenario 5: Reduced transmissibility in undetected (weakly symptomatic) cases
+
+Shaman et al. (personal communication) have estimated that transmissibility in undetected cases is approximatey 52% of that in detected cases. Here we return to our baseline scenario, but reduce transmissibility of undetected cases asccording to a coefficient $c=0.52$.
+If the other features of this scenario (e.g. case isolation rate, etc.) are taken as given, such a reduction is inconsistent with the observed epidemic curve. 
+Presumably, our model could be made consistent with this estimate if a different time-varying function for case isolation was chosen. 
+
+![A model-based scenario for the early spread of 2019-nCov in Wuhan when undetected cases transmit at a lower rate than detected cases.](stochastic-model_files/figure-html/sim5-1.png)
+
+### Scenario 6: Short serial interval
+
+Nishiura et al (https://www.medrxiv.org/content/10.1101/2020.02.03.20019497v1) have estimated the serial interval to be 2.6 days, suggesting that a considerable amount of secondary transmission may be due to presymptomatic cases.
+To approximate this scenario, this scenario allow the latent class to be infectious.
+This scenario is starkly inconsistent with the oberved case notification curve.
+
+![A model-based scenario for the early spread of 2019-nCov in Wuhan with a very short serial interval.](stochastic-model_files/figure-html/sim6-1.png)
 
 ## Discussion
 
