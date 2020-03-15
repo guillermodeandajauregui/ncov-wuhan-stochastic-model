@@ -1,13 +1,12 @@
 ---
 title: "Scenario analysis for the transmission of COVID-19 in Georgia"
-author: "John M. Drake (jdrake@uga.edu)"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 header-includes:
   - \usepackage{amsmath}
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
