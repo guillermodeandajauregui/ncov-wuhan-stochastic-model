@@ -13,19 +13,43 @@ output:
 knitr::opts_chunk$set(echo = FALSE, cache=TRUE, warning=FALSE)
 today <- Sys.Date()
 
-state.data <- read.csv('COVID19 US cases by state - Sheet1.csv')
-state.data$Date <- as.Date(state.data$X, format='%Y-%m-%d')
+#OLD - from version 1
+#state.data <- read.csv('COVID19 US cases by state - Sheet1.csv')
+#state.data$Date <- as.Date(state.data$X, format='%Y-%m-%d')
+#georgia <- data.frame(date=state.data$Date, cases=state.data$GA)
+#georgia[is.na(georgia)] <- 0
+#georgia <- georgia[14:dim(georgia)[1],]
+
+# pull data directly from github repo
+state.data <- read.csv('https://raw.githubusercontent.com/CEIDatUGA/COVID-19-DATA/master/UScases_by_state_wikipedia.csv?token=ABQMQXYOBV7TFRDQXWX2YQC6PEFIU')
+state.data <- state.data[1:(dim(state.data)[1]-1),]
+state.data$Date <- as.Date(state.data$Date, format='%b %d')
+state.data[is.na(state.data)] <- 0
 georgia <- data.frame(date=state.data$Date, cases=state.data$GA)
-georgia[is.na(georgia)] <- 0
 georgia <- georgia[14:dim(georgia)[1],]
+```
+
+
+```{r styles}
+source('style-definitions.R')
 ```
 
 ## Introduction
 
 The epidemiology of COVID-19 in the United States is poorly understood.
 To better understand the potential range of epidemic outcomes in the state of Georgia, we developed a model based on data from Hubei Province, China calibrated to regionally specific conditions in Georgia and observations of the number of reported cases in Georgia in early March.
-Simulation results are illustrated in the following figures.
-Note the different y-axes.
+
+## Data
+
+At the time of this report, Georgia is reporting `r sum(georgia$cases)` cases.
+
+```{r}
+plot(georgia$date, georgia$cases, 
+     type='h', lwd=5, lend='butt', xlab='', 
+     col = col.cases,
+     ylab='New case notifications', 
+     main='COVID-19 cases in Georgia')
+```
 
 ```{r onestep}
 onestep <- function (x, params) {  #function to calculate one step of stochastic SIR
@@ -159,7 +183,7 @@ beta <- function(t, w=12, beta0=0.6584, beta.factor=2) ifelse(t<=w,beta0,beta0/b
 ```
 
 ```{r evaluate}
-evaluate.model <- function(params=list(beta0=0.6584, sigma=1/6.4, z=12, b=0.143, a0=1/1.5, w=12, c=1, dt=0.05),
+evaluate.model <- function(params=list(beta0=0.6584, sigma=1/6.4, z=12, b=0.143, a0=1/1.5, w=12, c=1, presymptomatic=1, dt=0.05),
                                        init = list(S=10600000, E1=0, E2=0, E3=0, E4=0, E5=6, E6=0,
                                                    I1 = 1, I2= 0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0,
                                                    H=0, Ru=0, C=0),
@@ -215,16 +239,16 @@ plot.model <- function(data, log='y', title=''){
   C.mean <- rowMeans(m5)
   
   # colors
-  E.col <- rgb(0,1,0,.25)
-  I.col <- rgb(1,0,0,.25)
-  Iu.col <- rgb(0.5, 0.5, 0, 0.25)
-  H.col <- rgb(0,0,1,.25)
-  C.col <- rgb(0,0,0,.25)
-  E.mean.col <- rgb(0,1,0,1)
-  I.mean.col <- rgb(1,0,0,1)
-  Iu.mean.col <- rgb(0.5,0.5,0,1)
-  H.mean.col <- rgb(0,0,1,1)
-  C.mean.col <- rgb(0,0,0,1)
+  # E.col <- rgb(0,1,0,.25)
+  # I.col <- rgb(1,0,0,.25)
+  # Iu.col <- rgb(0.5, 0.5, 0, 0.25)
+  # H.col <- rgb(0,0,1,.25)
+  # C.col <- rgb(0,0,0,.25)
+  # E.mean.col <- rgb(0,1,0,1)
+  # I.mean.col <- rgb(1,0,0,1)
+  # Iu.mean.col <- rgb(0.5,0.5,0,1)
+  # H.mean.col <- rgb(0,0,1,1)
+  # C.mean.col <- rgb(0,0,0,1)
   
   #set up plot
   plot(I~cum.time,data=data[[1]],xlab='',ylab='Cases',col=1,
@@ -233,14 +257,14 @@ plot.model <- function(data, log='y', title=''){
   
   # add data to plot
   day <- georgia$date - start
-  lines(day, cumsum(georgia$cases), type='h', col='black', lwd=3, lend='butt' )
+  lines(day, cumsum(georgia$cases), type='h', col=col.cases, lwd=3, lend='butt' )
   
   # plot spaghetti
-  lines(E~cum.time,data=data[[1]], col=E.col, lty=1)
-  lines(I+Iu~cum.time,data=data[[1]], col=I.col, lty=1)
+  lines(E~cum.time,data=data[[1]], col=col.E.ci, lty=1)
+  lines(I+Iu~cum.time,data=data[[1]], col=col.I.ci, lty=1)
  # lines(Iu~cum.time,data=data[[1]], col=Iu.col, lty=1)
-  lines(H~cum.time,data=data[[1]], col=H.col, lty=1)
-  lines(C~cum.time,data=data[[1]], col=C.col, lty=1, lwd=1)
+  lines(H~cum.time,data=data[[1]], col=col.nowcast.ci, lty=1)
+  lines(C~cum.time,data=data[[1]], col=col.cases.ci, lty=1, lwd=1)
 
  
   axis(1, at=seq(0,max.time,5), labels=format(start+seq(0,max.time,5), format= '%b %d'))
@@ -249,23 +273,23 @@ plot.model <- function(data, log='y', title=''){
 
   if(nsims > 1){
   for (k in 2:min(100,nsims)) {              #add multiple epidemics to plot
-    lines(E~cum.time, data=data[[k]], col=E.col, type='l', lty=1)
-    lines(I+Iu~cum.time, data=data[[k]], col=I.col, type='l', lty=1)
+    lines(E~cum.time, data=data[[k]], col=col.E.ci, type='l', lty=1)
+    lines(I+Iu~cum.time, data=data[[k]], col=col.I.ci, type='l', lty=1)
  #   lines(Iu~cum.time, data=data[[k]], col=Iu.col, type='l', lty=1)
-    lines(H~cum.time, data=data[[k]], col=H.col, type='l', lty=1)
-    lines(C~cum.time, data=data[[k]], col=C.col, type='l', lty=1, lwd=1)
+    lines(H~cum.time, data=data[[k]], col=col.nowcast.ci, type='l', lty=1)
+    lines(C~cum.time, data=data[[k]], col=col.cases.ci, type='l', lty=1, lwd=1)
   }
   
   # plot means
-  lines(E.mean~cum.time, data=data[[k]], col=E.mean.col, lty=1)
-  lines(I.mean~cum.time, data=data[[k]], col=I.mean.col, lty=1)  
+  lines(E.mean~cum.time, data=data[[k]], col=col.E, lty=1)
+  lines(I.mean~cum.time, data=data[[k]], col=col.I, lty=1)  
 #  lines(Iu.mean~cum.time, data=data[[k]], col=Iu.mean.col, lty=1)
-  lines(H.mean~cum.time, data=data[[k]], col=H.mean.col, lty=1)
-  lines(C.mean~cum.time, data=data[[k]], col=C.mean.col, lty=1)
+  lines(H.mean~cum.time, data=data[[k]], col=col.nowcast, lty=1)
+  lines(C.mean~cum.time, data=data[[k]], col=col.cases, lty=1)
   }
 
    legend('topleft', lty=c(1,1,1,1,1,1), lwd=c(1,1,1,1,3,3), bty='n', cex=0.75,
-         col=c(E.col, I.col, H.col, C.col, 'black'),
+         col=c(col.E, col.I, col.nowcast, col.cases, 'black'),
          legend=c('Latent cases in the community', 'Infectious cases in the community', 'Hospitalized', 
                   'Cumulative reported cases (Model)', 'Cumulative reported cases (Data)'))
 }
@@ -309,16 +333,16 @@ plot.model2 <- function(data, log='y'){
   cum.time <- data[[1]]$cum.time
   
   # colors
-  E.col <- rgb(0,1,0,.25)
-  I.col <- rgb(1,0,0,.25)
-  Iu.col <- rgb(0.5, 0.5, 0, 0.25)
-  H.col <- rgb(0,0,1,.25)
-  C.col <- rgb(0,0,0,.25)
-  E.mean.col <- rgb(0,1,0,1)
-  I.mean.col <- rgb(1,0,0,1)
-  Iu.mean.col <- rgb(0.5,0.5,0,1)
-  H.mean.col <- rgb(0,0,1,1)
-  C.mean.col <- rgb(0,0,0,1)
+  # E.col <- rgb(0,1,0,.25)
+  # I.col <- rgb(1,0,0,.25)
+  # Iu.col <- rgb(0.5, 0.5, 0, 0.25)
+  # H.col <- rgb(0,0,1,.25)
+  # C.col <- rgb(0,0,0,.25)
+  # E.mean.col <- rgb(0,1,0,1)
+  # I.mean.col <- rgb(1,0,0,1)
+  # Iu.mean.col <- rgb(0.5,0.5,0,1)
+  # H.mean.col <- rgb(0,0,1,1)
+  # C.mean.col <- rgb(0,0,0,1)
   
   #set up plot
   plot(obs.mean~cum.time, xlab='',ylab='Cases',col=1,
@@ -326,11 +350,11 @@ plot.model2 <- function(data, log='y'){
   
   # add data to plot
   day <- georgia$date - start
-  lines(day, cumsum(georgia$cases), type='h', col='black', lwd=3, lend='butt' )
+  lines(day, cumsum(georgia$cases), type='h', col=col.cases, lwd=3, lend='butt' )
   
   # plot spaghetti
-  lines(unobserved[,1]~cum.time, col=E.col, lty=1)
-  lines(observed[,1]~cum.time, col=C.col, lty=1, lwd=1)
+  lines(unobserved[,1]~cum.time, col=col.E.ci, lty=1)
+  lines(observed[,1]~cum.time, col=col.cases.ci, lty=1, lwd=1)
  
   axis(1, at=seq(0,max.time,5), labels=format(start+seq(0,max.time,5), format= '%b %d'))
   axis(2)
@@ -338,86 +362,89 @@ plot.model2 <- function(data, log='y'){
 
   if(nsims > 1){
   for (k in 2:min(100,nsims)) {              #add multiple epidemics to plot
-    lines(unobserved[,k]~cum.time,  col=E.col, type='l', lty=1)
-    lines(observed[,k]~cum.time, col=C.col, type='l', lty=1, lwd=1)
+    lines(unobserved[,k]~cum.time,  col=col.E.ci, type='l', lty=1)
+    lines(observed[,k]~cum.time, col=col.cases.ci, type='l', lty=1, lwd=1)
   }
   
   # plot means
-  lines(unobs.mean~cum.time, col=E.mean.col, lty=1)
-  lines(obs.mean~cum.time, col=C.mean.col, lty=1)
+  lines(unobs.mean~cum.time, col=col.E, lty=1)
+  lines(obs.mean~cum.time, col=col.C, lty=1)
   }
 
    legend('topleft', lty=c(1,1,1), lwd=c(1,1,3), bty='n', cex=0.75,
-         col=c(E.col, C.col, 'black'),
+         col=c(col.E, col.C, 'black'),
          legend=c('Unobserved cases', 'Cumulative reported cases (Model)', 'Cumulative reported cases (Data)'))
 }
 ```
 
 
 ```{r plot-summary}
-plot.summary <- function(data){
-  
-  #A third plotting function summarizes the model-based distribution of cases and notifications at the current time.
-
-   # process data
-  nsims <- length(data)
- 
-  for(i in 1:nsims) data[[i]]$I <- data[[i]]$I1 + data[[i]]$I2 + data[[i]]$I3 +
-      data[[i]]$I4
-  for(i in 1:nsims) data[[i]]$Iu <- data[[i]]$Iu1 + data[[i]]$Iu2 + data[[i]]$Iu3 +
-      data[[i]]$Iu4
-  for(i in 1:nsims) data[[i]]$E <- data[[i]]$E1 + data[[i]]$E2 + data[[i]]$E3 +
-      data[[i]]$E4 + data[[i]]$E5 + data[[i]]$E6
-  
-  max.time<-data[[1]]$cum.time[max(which(data[[1]]$I>0))] #maximum time in first simulation
-  max.y<-max(data[[1]]$I)       #find max total confirmed cases for plotting range
-  
-  # calculate means
-  m1 <- m2 <- m3 <- m4 <- m5 <- matrix(nrow=length(data[[1]]$I), ncol=nsims)
-  for(i in 1:nsims){
-    m1[,i] <- data[[i]]$E
-    m2[,i] <- data[[i]]$I
-    m3[,i] <- data[[i]]$Iu
-    m4[,i] <- data[[i]]$H
-    m5[,i] <- data[[i]]$C
-  }
-  E.mean <- rowMeans(m1)
-  I.mean <- rowMeans(m2)
-  Iu.mean <- rowMeans(m3)
-  H.mean <- rowMeans(m4)
-  C.mean <- rowMeans(m5)
-  
-  # colors
-  E.col <- rgb(0,1,0,.25)
-  I.col <- rgb(1,0,0,.25)
-  Iu.col <- rgb(0.5, 0.5, 0, 0.25)
-  H.col <- rgb(0,0,1,.25)
-  C.col <- rgb(0,0,0,.25)
-  E.mean.col <- rgb(0,1,0,1)
-  I.mean.col <- rgb(1,0,0,1)
-  Iu.mean.col <- rgb(0.5,0.5,0,1)
-  H.mean.col <- rgb(0,0,1,1)
-  C.mean.col <- rgb(0,0,0,1)
-  
-  #set up plot
-  j <- max(which(data[[1]]$time < today.day))
-  
-  h1 <- hist(log10(m1[j,]+m2[j,]+m3[j,]+m4[j,]), plot=FALSE)  # total unnotifed cases in the community is E+I+Iu+H
-  h2 <- hist(log10(m5[j,]), plot=FALSE)         # total case notifications
-  
-  xlim <- c(floor(min(c(h1$mids, h2$mids))),ceiling(max(c(h1$mids, h2$mids))))
-  ylim <- c(0, ceiling(max(c(h1$density, h2$density))))
-  
-  plot(xlim, ylim, type='n', axes=FALSE, xlab='Outbreak size', ylab='Probability density', main=paste('Total observed and unobserved cases as of', today))
-  lines(h1$mids, h1$density, type='l', lwd=3, lend='butt', col=rgb(0.5,0.5,0, 0.5))
-  lines(h2$mids, h2$density, type='l', lwd=3, lend='butt', col=C.col)
-  legend('topleft', lty=1, col = c(rgb(0.5,0.5,0, 0.5), C.col), legend=c('Unobserved cases', 'Case notifications'), bty='n')
-  axis(1, seq(min(xlim), max(xlim), by=1), labels=formatC(10^seq(min(xlim), max(xlim), by=1), format='d', big.mark=","))
-  box()
-}
+# plot.summary <- function(data){
+#   
+#   #A third plotting function summarizes the model-based distribution of cases and notifications at the current time.
+# 
+#    # process data
+#   nsims <- length(data)
+#  
+#   for(i in 1:nsims) data[[i]]$I <- data[[i]]$I1 + data[[i]]$I2 + data[[i]]$I3 +
+#       data[[i]]$I4
+#   for(i in 1:nsims) data[[i]]$Iu <- data[[i]]$Iu1 + data[[i]]$Iu2 + data[[i]]$Iu3 +
+#       data[[i]]$Iu4
+#   for(i in 1:nsims) data[[i]]$E <- data[[i]]$E1 + data[[i]]$E2 + data[[i]]$E3 +
+#       data[[i]]$E4 + data[[i]]$E5 + data[[i]]$E6
+#   
+#   max.time<-data[[1]]$cum.time[max(which(data[[1]]$I>0))] #maximum time in first simulation
+#   max.y<-max(data[[1]]$I)       #find max total confirmed cases for plotting range
+#   
+#   # calculate means
+#   m1 <- m2 <- m3 <- m4 <- m5 <- matrix(nrow=length(data[[1]]$I), ncol=nsims)
+#   for(i in 1:nsims){
+#     m1[,i] <- data[[i]]$E
+#     m2[,i] <- data[[i]]$I
+#     m3[,i] <- data[[i]]$Iu
+#     m4[,i] <- data[[i]]$H
+#     m5[,i] <- data[[i]]$C
+#   }
+#   E.mean <- rowMeans(m1)
+#   I.mean <- rowMeans(m2)
+#   Iu.mean <- rowMeans(m3)
+#   H.mean <- rowMeans(m4)
+#   C.mean <- rowMeans(m5)
+#   
+#   # colors
+#   E.col <- rgb(0,1,0,.25)
+#   I.col <- rgb(1,0,0,.25)
+#   Iu.col <- rgb(0.5, 0.5, 0, 0.25)
+#   H.col <- rgb(0,0,1,.25)
+#   C.col <- rgb(0,0,0,.25)
+#   E.mean.col <- rgb(0,1,0,1)
+#   I.mean.col <- rgb(1,0,0,1)
+#   Iu.mean.col <- rgb(0.5,0.5,0,1)
+#   H.mean.col <- rgb(0,0,1,1)
+#   C.mean.col <- rgb(0,0,0,1)
+#   
+#   #set up plot
+#   j <- max(which(data[[1]]$time < today.day))
+#   
+#   h1 <- hist(log10(m1[j,]+m2[j,]+m3[j,]+m4[j,]), plot=FALSE)  # total unnotifed cases in the community is E+I+Iu+H
+#   h2 <- hist(log10(m5[j,]), plot=FALSE)         # total case notifications
+#   
+#   xlim <- c(floor(min(c(h1$mids, h2$mids))),ceiling(max(c(h1$mids, h2$mids))))
+#   ylim <- c(0, ceiling(max(c(h1$density, h2$density))))
+#   
+#   plot(xlim, ylim, type='n', axes=FALSE, xlab='Outbreak size', ylab='Probability density', main=paste('Total observed and unobserved cases as of', today))
+#   lines(h1$mids, h1$density, type='l', lwd=3, lend='butt', col=rgb(0.5,0.5,0, 0.5))
+#   lines(h2$mids, h2$density, type='l', lwd=3, lend='butt', col=C.col)
+#   legend('topleft', lty=1, col = c(rgb(0.5,0.5,0, 0.5), C.col), legend=c('Unobserved cases', 'Case notifications'), bty='n')
+#   axis(1, seq(min(xlim), max(xlim), by=1), labels=formatC(10^seq(min(xlim), max(xlim), by=1), format='d', big.mark=","))
+#   box()
+# }
 ```
 
 ## Scenario analysis
+
+Simulation results are illustrated in the following figures.
+Note the different y-axes.
 
 ### Panel analysis
 
@@ -447,8 +474,8 @@ out <- lapply(scenarios.output, get.range)
 
 plot.ensemble <- function(x, plausible=8){
   n <- length(x)
-  c <- rep('black',n)
-  c[plausible] <- 'red'
+  c <- rep(col.cases,n)
+  c[plausible] <- col.I
   min <- min(unlist(out))
   max <- max(unlist(out))
   par(mar=c(5,25,4,0)+0.1)
@@ -510,21 +537,21 @@ out8 <- evaluate.model(params=list(beta0=0.6584, sigma=1/6.4, z=12, b=0.143, a0=
                                                    I1 = 1, I2= 1, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0,
                                                    H=0, Ru=0, C=0),
                            nsims=15, nstep=NULL, start=as.Date("2020-03-01"))
-plot.model(out8, log='', title='Outbreak started with 8 cases on 1 March and interventions on 12 March')
+plot.model(out8, log='y', title='Outbreak started with 8 cases on 1 March and interventions on 12 March')
 
 out64 <- evaluate.model(params=list(beta0=0.6584, sigma=1/6.4, z=12, b=0.143, a0=1/1.5, w=12, c=1, presymptomatic=1, dt=0.05),
                                        init = list(S=10600000, E1=6, E2=6, E3=6, E4=6, E5=6, E6=6,
                                                    I1 = 7, I2= 7, I3=7, I4=7, Iu1=0, Iu2=0, Iu3=0, Iu4=0,
                                                    H=0, Ru=0, C=0),
                            nsims=15, nstep=NULL, start=as.Date("2020-03-01"))
-plot.model(out64, log='', title='Outbreak started with 64 cases on 1 March and interventions on 12 March')
+plot.model(out64, log='y', title='Outbreak started with 64 cases on 1 March and interventions on 12 March')
 
 out128 <- evaluate.model(params=list(beta0=0.6584, sigma=1/6.4, z=12, b=0.143, a0=1/1.5, w=12, c=1, presymptomatic=1, dt=0.05),
                                        init = list(S=10600000, E1=13, E2=13, E3=13, E4=13, E5=13, E6=13,
                                                    I1 = 13, I2= 13, I3=12, I4=12, Iu1=0, Iu2=0, Iu3=0, Iu4=0,
                                                    H=0, Ru=0, C=0),
                            nsims=15, nstep=NULL, start=as.Date("2020-03-01"))
-plot.model(out128, log='', title='Outbreak started with 128 cases on 1 March and interventions on 12 March')
+plot.model(out128, log='y', title='Outbreak started with 128 cases on 1 March and interventions on 12 March')
 ```
 
 
