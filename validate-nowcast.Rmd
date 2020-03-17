@@ -2,10 +2,12 @@
 title: "Validating nowcast routine"
 author: "John M. Drake"
 date: "3/15/2020"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, eval=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(tibbletime)
@@ -25,7 +27,7 @@ This script uses our stochastic simulator to try and validate the nowcasting sch
 
 Nowcasting is implemented here.
 
-```{r nowcast}
+```{r nowcast, eval=FALSE}
 US.params <- list(admin = "US", # state or country
                     q = 1, # Detection probability
                     a = 0.346, # Proportion of cases that are asymptomatic
@@ -279,17 +281,19 @@ plot.model <- function(data, log='y', title=''){
 
 Now we simulate an epidemic. In this example, rapid case islation begins on day 28 and social distancing ("lockdown") begins in day 42.
 The epidemic is seeded with a single infectious individual.
+There is approximately 1 day of presymptomatic infection
 
 ```{r}
+scenario <- 'Scenario 1'
 start=as.Date("2020-03-01")
 today <- Sys.Date()
 out <- evaluate.model(params=list(beta0=0.6584, sigma=1/6.4, z=28, b=0.143, a0=1/1.5, w=42, presymptomatic=1, c=1, dt=0.05),
                                        init = list(S=10600000, E1=0, E2=0, E3=0, E4=0, E5=0, E6=0,
                                                    I1 = 1, I2= 0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0,
                                                    H=0, Ru=0, C=0),
-                                nstep = (as.numeric(today-start)+1+84)/params$dt,   # solve for 12 weeks from current time
+                                nstep = (as.numeric(today-start)+1+84)/0.05,   # solve for 12 weeks from current time
                                 nsims=1, start=as.Date("2020-03-01"))
-plot.model(out, log='', title='Nowcast validation: Scenario 1')
+plot.model(out, log='', title=paste('Nowcast validation:', scenario))
 
 out <- out[[1]]
 report.times <- seq(1,(length(out$cum.time)), by=20)
@@ -298,7 +302,181 @@ plot(case.notifications)
 unobserved <- out$E1+out$E2+out$E3+out$E4+out$E5+out$E6+out$I1+out$I2+out$I3+out$I4+out$Iu1+out$Iu2+out$Iu3+out$Iu4
 unobserved <- unobserved[tail(report.times,-1)]
 new.infections <- head(-1*aggregate(diff(out$S), by=list(tail(floor(out$cum.time),-1)), FUN=sum)$x,-1)
-nowcast.validation.1 <- data.frame(case.notifications, new.infections, unobserved)
-plot(nowcast.validation.1)
-write.csv(nowcast.validation.1, file='nowcast-validation-1.csv')
+nowcast.validation <- data.frame(case.notifications, new.infections, unobserved)
+plot(nowcast.validation)
+write.csv(nowcast.validation, file=paste('nowcast-validation-',scenario,'.csv', sep=''))
+```
+Here is a version with underreporting due to asymptomatic rate of 0.346. Note: this model assumes asymptomatic and presymptomatic persons transmit at the same rate as symptomatic persons.
+
+```{r}
+scenario <- 'Scenario 2'
+start=as.Date("2020-03-01")
+set.seed(03162020)
+
+q <- function(t, w=12, q0=0.346, q1=0.346) ifelse(t<=w,q0,q1)
+
+today <- Sys.Date()
+out <- evaluate.model(params=list(beta0=0.6584, sigma=1/6.4, z=28, b=0.143, a0=1/1.5, w=42, presymptomatic=1, c=0.2, dt=0.05),
+                                       init = list(S=10600000, E1=0, E2=0, E3=0, E4=0, E5=0, E6=0,
+                                                   I1 = 1, I2= 0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0,
+                                                   H=0, Ru=0, C=0),
+                                nstep = (as.numeric(today-start)+1+84)/0.05,   # solve for 12 weeks from current time
+                                nsims=1, start=as.Date("2020-03-01"))
+plot.model(out, log='', title=paste('Nowcast validation:', scenario))
+
+out <- out[[1]]
+report.times <- seq(1,(length(out$cum.time)), by=20)
+case.notifications <- diff(out$C[report.times])
+plot(case.notifications)
+unobserved <- out$E1+out$E2+out$E3+out$E4+out$E5+out$E6+out$I1+out$I2+out$I3+out$I4+out$Iu1+out$Iu2+out$Iu3+out$Iu4
+unobserved <- unobserved[tail(report.times,-1)]
+new.infections <- head(-1*aggregate(diff(out$S), by=list(tail(floor(out$cum.time),-1)), FUN=sum)$x,-1)
+nowcast.validation <- data.frame(case.notifications, new.infections, unobserved)
+plot(nowcast.validation)
+write.csv(nowcast.validation, file=paste('nowcast-validation-',scenario,'.csv', sep=''))
+```
+
+Here is another example with early intervention (day 21) and moderate asymptomatic transmission (35% of symptomatic).
+
+```{r}
+scenario <- 'Scenario 3'
+start=as.Date("2020-03-01")
+set.seed(03162020)
+
+q <- function(t, w=12, q0=0.346, q1=0.346) ifelse(t<=w,q0,q1)
+
+today <- Sys.Date()
+out <- evaluate.model(params=list(beta0=0.6584, sigma=1/6.4, z=28, b=0.143, a0=1/1.5, w=21, presymptomatic=1, c=0.35, dt=0.05),
+                                       init = list(S=10600000, E1=0, E2=0, E3=0, E4=0, E5=0, E6=0,
+                                                   I1 = 1, I2= 0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0,
+                                                   H=0, Ru=0, C=0),
+                                nstep = (as.numeric(today-start)+1+84)/0.05,   # solve for 12 weeks from current time
+                                nsims=1, start=as.Date("2020-03-01"))
+plot.model(out, log='', title=paste('Nowcast validation:', scenario))
+
+out <- out[[1]]
+report.times <- seq(1,(length(out$cum.time)), by=20)
+case.notifications <- diff(out$C[report.times])
+plot(case.notifications)
+unobserved <- out$E1+out$E2+out$E3+out$E4+out$E5+out$E6+out$I1+out$I2+out$I3+out$I4+out$Iu1+out$Iu2+out$Iu3+out$Iu4
+unobserved <- unobserved[tail(report.times,-1)]
+new.infections <- head(-1*aggregate(diff(out$S), by=list(tail(floor(out$cum.time),-1)), FUN=sum)$x,-1)
+nowcast.validation <- data.frame(case.notifications, new.infections, unobserved)
+plot(nowcast.validation)
+write.csv(nowcast.validation, file=paste('nowcast-validation-',scenario,'.csv', sep=''))
+```
+
+```{r}
+scenario <- 'Scenario 4'
+start=as.Date("2020-03-01")
+set.seed(03162020)
+
+q <- function(t, w=12, q0=1, q1=1) ifelse(t<=w,q0,q1)
+
+today <- Sys.Date()
+out <- evaluate.model(params=list(beta0=0.6584, sigma=1/6.4, z=14, b=0.143, a0=1/1.5, w=21, presymptomatic=1, c=1, dt=0.05),
+                                       init = list(S=10600000, E1=0, E2=0, E3=0, E4=0, E5=0, E6=0,
+                                                   I1 = 1, I2= 0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0,
+                                                   H=0, Ru=0, C=0),
+                                nstep = (as.numeric(today-start)+1+84)/0.05,   # solve for 12 weeks from current time
+                                nsims=1, start=as.Date("2020-03-01"))
+plot.model(out, log='', title=paste('Nowcast validation:', scenario))
+
+out <- out[[1]]
+report.times <- seq(1,(length(out$cum.time)), by=20)
+case.notifications <- diff(out$C[report.times])
+plot(case.notifications)
+unobserved <- out$E1+out$E2+out$E3+out$E4+out$E5+out$E6+out$I1+out$I2+out$I3+out$I4+out$Iu1+out$Iu2+out$Iu3+out$Iu4
+unobserved <- unobserved[tail(report.times,-1)]
+new.infections <- head(-1*aggregate(diff(out$S), by=list(tail(floor(out$cum.time),-1)), FUN=sum)$x,-1)
+nowcast.validation <- data.frame(case.notifications, new.infections, unobserved)
+plot(nowcast.validation)
+write.csv(nowcast.validation, file=paste('nowcast-validation-',scenario,'.csv', sep=''))
+```
+
+
+```{r}
+scenario <- 'Scenario 5'
+start=as.Date("2020-03-01")
+set.seed(03162020)
+
+q <- function(t, w=12, q0=1, q1=1) ifelse(t<=w,q0,q1)
+
+today <- Sys.Date()
+out <- evaluate.model(params=list(beta0=0.6584, sigma=1/6.4, z=28, b=0.143, a0=1/1.5, w=42, presymptomatic=1, c=1, dt=0.05),
+                                       init = list(S=10600000, E1=0, E2=0, E3=0, E4=0, E5=0, E6=0,
+                                                   I1 = 1, I2= 0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0,
+                                                   H=0, Ru=0, C=0),
+                                nstep = (as.numeric(today-start)+1+84)/0.05,   # solve for 12 weeks from current time
+                                nsims=1, start=as.Date("2020-03-01"))
+plot.model(out, log='', title=paste('Nowcast validation:', scenario))
+
+out <- out[[1]]
+report.times <- seq(1,(length(out$cum.time)), by=20)
+case.notifications <- diff(out$C[report.times])
+plot(case.notifications)
+unobserved <- out$E1+out$E2+out$E3+out$E4+out$E5+out$E6+out$I1+out$I2+out$I3+out$I4+out$Iu1+out$Iu2+out$Iu3+out$Iu4
+unobserved <- unobserved[tail(report.times,-1)]
+new.infections <- head(-1*aggregate(diff(out$S), by=list(tail(floor(out$cum.time),-1)), FUN=sum)$x,-1)
+nowcast.validation <- data.frame(case.notifications, new.infections, unobserved)
+plot(nowcast.validation)
+write.csv(nowcast.validation, file=paste('nowcast-validation-',scenario,'.csv', sep=''))
+```
+
+```{r}
+scenario <- 'Scenario 6'
+start=as.Date("2020-03-01")
+set.seed(03162020)
+
+q <- function(t, w=12, q0=1, q1=1) ifelse(t<=w,q0,q1)
+
+today <- Sys.Date()
+out <- evaluate.model(params=list(beta0=0.6584, sigma=1/6.4, z=28, b=0.143, a0=1/1.5, w=42, presymptomatic=0, c=1, dt=0.05),
+                                       init = list(S=10600000, E1=0, E2=0, E3=0, E4=0, E5=0, E6=0,
+                                                   I1 = 1, I2= 0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0,
+                                                   H=0, Ru=0, C=0),
+                                nstep = (as.numeric(today-start)+1+84)/0.05,   # solve for 12 weeks from current time
+                                nsims=1, start=as.Date("2020-03-01"))
+plot.model(out, log='', title=paste('Nowcast validation:', scenario))
+
+out <- out[[1]]
+report.times <- seq(1,(length(out$cum.time)), by=20)
+case.notifications <- diff(out$C[report.times])
+plot(case.notifications)
+unobserved <- out$E1+out$E2+out$E3+out$E4+out$E5+out$E6+out$I1+out$I2+out$I3+out$I4+out$Iu1+out$Iu2+out$Iu3+out$Iu4
+unobserved <- unobserved[tail(report.times,-1)]
+new.infections <- head(-1*aggregate(diff(out$S), by=list(tail(floor(out$cum.time),-1)), FUN=sum)$x,-1)
+nowcast.validation <- data.frame(case.notifications, new.infections, unobserved)
+plot(nowcast.validation)
+write.csv(nowcast.validation, file=paste('nowcast-validation-',scenario,'.csv', sep=''))
+```
+
+```{r}
+scenario <- 'Scenario 7'
+start=as.Date("2020-03-01")
+set.seed(03162020)
+
+q <- function(t, w=12, q0=1, q1=1) ifelse(t<=w,q0,q1)
+eta <- function(t, w=12) ifelse(t<=w,10,10)
+beta <- function(t, w=12, beta0=0.6584, beta.factor=2) ifelse(t<=w,beta0,beta0/beta.factor)
+
+today <- Sys.Date()
+out <- evaluate.model(params=list(beta0=0.6584, sigma=1/7.67, z=14, b=0.143, a0=1/1.5, w=28, presymptomatic=1, c=1, dt=0.05),
+                                       init = list(S=10600000, E1=0, E2=0, E3=0, E4=0, E5=0, E6=0,
+                                                   I1 = 1, I2= 0, I3=0, I4=0, Iu1=0, Iu2=0, Iu3=0, Iu4=0,
+                                                   H=0, Ru=0, C=0),
+                                nstep = (as.numeric(today-start)+1+184)/0.05,   # solve for 12 weeks from current time
+                                nsims=1, start=as.Date("2020-03-01"))
+plot.model(out, log='', title=paste('Nowcast validation:', scenario))
+
+out <- out[[1]]
+report.times <- seq(1,(length(out$cum.time)), by=20)
+case.notifications <- diff(out$C[report.times])
+plot(case.notifications)
+unobserved <- out$E1+out$E2+out$E3+out$E4+out$E5+out$E6+out$I1+out$I2+out$I3+out$I4+out$Iu1+out$Iu2+out$Iu3+out$Iu4
+unobserved <- unobserved[tail(report.times,-1)]
+new.infections <- head(-1*aggregate(diff(out$S), by=list(tail(floor(out$cum.time),-1)), FUN=sum)$x,-1)
+nowcast.validation <- data.frame(case.notifications, new.infections, unobserved)
+plot(nowcast.validation)
+write.csv(nowcast.validation, file=paste('nowcast-validation-',scenario,'.csv', sep=''))
 ```
