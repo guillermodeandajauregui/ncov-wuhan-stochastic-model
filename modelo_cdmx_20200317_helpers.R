@@ -1,3 +1,31 @@
+xxx <- vroom::vroom("data/Tabla_casos_positivos_resultado_InDRE_2020.03.16-Table-1-2.csv")
+xxx %>% 
+  mutate(date = lubridate::dmy(`Fecha de Inicio de síntomas`)) %>% 
+  group_by(date) %>% 
+  tally(name = "cases") %>% 
+  drop_na() %>% 
+  vroom::vroom_write(path = "mx.datecases.2020.03.16.tsv")
+
+
+xxx %>% 
+  mutate(date = lubridate::dmy(`Fecha de Inicio de síntomas`)) %>% 
+  filter(Estado=="CIUDAD DE MÉXICO") %>% 
+  group_by(date) %>% 
+  tally(name = "cases") %>% 
+  drop_na() %>% pull(cases) %>% sum
+vroom::vroom_write(path = "data/cdmx.datecases.2020.03.16.tsv")
+
+wawawa <- escenarios[,-1] %>% as.data.frame
+
+lapply(wawawa, sum) %>% length
+
+i = 1
+parms <- as.list(scenarios[i,2:10])
+init <- as.list(scenarios[i,11:28])
+
+
+
+
 plot.model(data = mis_modelos$`1`, log = "", title = "prueba1")
 plot.model(data = mis_modelos[1], log = "", title = "prueba2")
 plot.model(data = mis_modelos[[5]], log = "", title = "prueba3")
