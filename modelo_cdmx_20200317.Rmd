@@ -1,0 +1,65 @@
+---
+title: "Modelo SIR de contagio y evaluacion de intervenciones"
+author: "Guillermo de Anda-Jáuregui"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: html_document
+---
+  
+```{r, echo=F,  message=F}
+#knitr::opts_chunk$set(cache = TRUE)
+source("src/functions.R")
+```
+
+Este modelo es una adaptación del modelo SIR y los análisis efectuados por John M. Drake ("jdrake[at]uga.edu"), aplicado para la ciudad de México. 
+
+##### Carga de datos: 
+
+Cargamos la información de contagios reportada por SSA (compilada por https://serendipia.digital/wp-content/uploads/2020/03/Tabla_casos_positivos_resultado_InDRE_2020.03.15-Table-1.csv)
+
+```{r, message=F}
+cdmx <- vroom::vroom(file = "data/cdmx.datecases.2020.03.16.tsv")
+```
+
+Cargamos algunos escenarios de análisis 
+
+```{r, message=F}
+escenarios <- vroom::vroom(file = "data/escenarios_cdmx.csv") %>% as.data.frame()
+escenarios %>% select(Description)
+```
+
+Veamos los casos en la CDMX 
+
+```{r}
+plot(cdmx$date, cdmx$cases,
+     type='h', lwd=5, lend='butt', xlab='', 
+#     col = col.cases,
+     ylab='Nuevos casos', 
+     main='casos COVID-19 en CDMX')
+```
+
+Modelemos los diferentes escenarios:
+
+```{r}
+mis_escenarios <- 1:5
+names(mis_escenarios) <- 1:5
+
+set.seed(725)
+mis_modelos <- 
+lapply(X = mis_escenarios, FUN = function(i){
+    parms <- as.list(escenarios[i,2:10])
+    init <- as.list(escenarios[i,11:28])
+    evaluate.model(params=parms, 
+                   init = init, 
+                   nsims=25, 
+                   nstep=NULL, 
+                   #start=as.Date("2020-03-01")
+                   start=min(cdmx$date)
+                   )
+})
+```
+
+Veamos el modelo sin intervenciones: 
+```{r}
+plot.model(mis_modelos[[1]], log='', title="Epidemia con 21 infecciones iniciales, sin  transmisión presintomática")
+```
+
